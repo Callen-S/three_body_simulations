@@ -2,6 +2,7 @@ import numpy as np
 from scipy.integrate import RK45
 import plotly.graph_objects as go
 
+
 def years_to_seconds(years):
     """
     Convert years to seconds.
@@ -19,6 +20,7 @@ def years_to_seconds(years):
 
     seconds = years * days_per_year * hours_per_day * minutes_per_hour * seconds_per_minute
     return seconds
+
 
 def gravitational_acceleration(masses, positions):
     """
@@ -43,9 +45,10 @@ def gravitational_acceleration(masses, positions):
                 r_magnitude = np.linalg.norm(r_vector)
                 if r_magnitude != 0:  # Avoid division by zero
                     r_unit = r_vector / r_magnitude
-                    accelerations[i] += G * masses[j] / r_magnitude**2 * r_unit
+                    accelerations[i] += G * masses[j] / r_magnitude ** 2 * r_unit
 
     return accelerations
+
 
 def three_body_simulation(masses, initial_positions, initial_velocities, t_span):
     """
@@ -61,10 +64,11 @@ def three_body_simulation(masses, initial_positions, initial_velocities, t_span)
     Returns:
         np.ndarray: Array of positions and velocities at each time point.
     """
+
     def derivatives(t, y):
         num_objects = len(masses)
-        positions = y[:3*num_objects].reshape((num_objects, 3))
-        velocities = y[3*num_objects:].reshape((num_objects, 3))
+        positions = y[:3 * num_objects].reshape((num_objects, 3))
+        velocities = y[3 * num_objects:].reshape((num_objects, 3))
         accelerations = gravitational_acceleration(masses, positions)
         return np.concatenate((velocities.flatten(), accelerations.flatten()))
 
@@ -78,6 +82,8 @@ def three_body_simulation(masses, initial_positions, initial_velocities, t_span)
         result.append(solution.y)
 
     return np.array(result), np.array(t_values)
+
+
 def is_problem_bounded(result, masses):
     """
     Check if the problem is still bounded by verifying if at any point in the last 1% of the simulation
@@ -95,18 +101,18 @@ def is_problem_bounded(result, masses):
 
     for data in last_1_percent_data:
         num_objects = len(masses)
-        positions = data[:3*num_objects].reshape((num_objects, 3))
-        velocities = data[3*num_objects:].reshape((num_objects, 3))
+        positions = data[:3 * num_objects].reshape((num_objects, 3))
+        velocities = data[3 * num_objects:].reshape((num_objects, 3))
         accelerations = gravitational_acceleration(masses, positions)
 
         for i in range(num_objects):
             for axis in range(3):
-                if not (abs(accelerations[i][axis]) >= 0.000000001/100 * abs(velocities[i][axis])):
+                if not (abs(accelerations[i][axis]) >= 0.000000001 / 100 * abs(velocities[i][axis])):
                     return False
     return True
 
-def get_simple_plot(result):
 
+def get_simple_plot(result):
     fig = go.Figure()
 
     au_to_meters = 1.496e11
@@ -128,6 +134,7 @@ def get_simple_plot(result):
         title='Three-Body Problem'
     )
     return fig
+
 
 def get_animated_plot(result):
     fig = go.Figure()
@@ -169,6 +176,7 @@ def get_animated_plot(result):
     )
     return fig
 
+
 def perturb(masses, positions, velocities):
     """
     Perturb the masses, positions, and velocities by small random amounts.
@@ -186,6 +194,8 @@ def perturb(masses, positions, velocities):
     perturbed_velocities = velocities * (1 + np.random.uniform(-0.02, 0.02, size=velocities.shape))
 
     return perturbed_masses, perturbed_positions, perturbed_velocities
+
+
 def read_initial_conditions(file_path):
     """
     Read initial conditions from a CSV file.
@@ -219,6 +229,7 @@ def read_initial_conditions(file_path):
 
     return masses, initial_positions, initial_velocities
 
+
 class nBodySystem:
     def __init__(self, file_path, system_number=0, t_span=(0, years_to_seconds(200))):
         masses, initial_positions, initial_velocities = read_initial_conditions(file_path)
@@ -226,15 +237,32 @@ class nBodySystem:
         self.masses = masses[system_number]
         self.initial_positions = initial_positions[system_number]
         self.initial_velocities = initial_velocities[system_number]
-
-    def simulate(self):
-        result, time = three_body_simulation(self.masses, self.initial_positions, self.initial_velocities, self.t_span)
-        return result, time
+        self.result, self.time = three_body_simulation(self.masses, self.initial_positions, self.initial_velocities,
+                                                       self.t_span)
 
     def plot(self, animated=False):
-        result, _ = self.simulate()
+        result, _ = self.result, self.time
         if animated:
             fig = get_animated_plot(result)
         else:
             fig = get_simple_plot(result)
         fig.show()
+
+    def perturb(self, perturbations=100):
+        results = []
+        for _ in range(perturbations):
+            num_objects = len(self.masses)
+
+            masses, initial_positions, initial_velocities = perturb(self.masses, self.initial_positions,
+                                                                    self.initial_velocities)
+            perturbed_result, perturbed_time = three_body_simulation(masses, initial_positions, initial_velocities,
+                                                                     self.t_span)
+            num_columns = perturbed_result.shape[1]
+            corrected_pert_result = np.zeros((len(self.time), num_columns))
+
+            for i in range(num_columns):
+                temp_col = np.interp(self.time, perturbed_time, perturbed_result[:, i])
+                corrected_pert_result[:, i] = temp_col
+
+            results.append(corrected_pert_result)
+        return results, self.time

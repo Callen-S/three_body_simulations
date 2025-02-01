@@ -4,7 +4,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 import matplotlib.pyplot as plt
-masses, initial_positions, initial_velocities = read_initial_conditions('initial_conditions.csv')
+masses, initial_positions, initial_velocities = read_initial_conditions('systems/initial_conditions.csv')
 for i in range(0,100):
     t_span = (0, years_to_seconds(50))
 
